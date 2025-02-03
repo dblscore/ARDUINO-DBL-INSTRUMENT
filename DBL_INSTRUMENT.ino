@@ -17,18 +17,8 @@
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-//initiation
-/** USAGE 
-NotePrec notePrec;
-    
-    notePrec.set(51, 72); //quand on appuis sur la note 51 on obtient 
+//========================================================
 
-    // Lire la valeur de notePrec[51]
-    int value = notePrec.get(51);
-    Serial.println(value); // Affichera 72
-**/
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 int gamme = 2773;
 int* gammeTab;
 int accord = 2192;
