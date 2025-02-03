@@ -701,21 +701,7 @@ void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//------------------------------------------------------------------------------
+//-------------- EVENEMENTS NOTES ON ET OFF ----------------------------------------------------------------
 
 void handleNoteOn(byte channel, byte pitch, byte velocity)
 {
