@@ -15,7 +15,13 @@
 
 #define LED 13
 
-MIDI_CREATE_DEFAULT_INSTANCE();
+
+//MIDI_CREATE_DEFAULT_INSTANCE();
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial1,  MIDIRX);
+
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial1,  MIDI);
+
+
 
 //========================================================
 
@@ -39,6 +45,8 @@ int lenDblMeasure;
 String dblMeasure;
 int indexDbl = 0;
 
+float dblAttenuation = 0.7;
+
 unsigned long precMillisNote;
 
 // velocity
@@ -56,7 +64,7 @@ private:
     int notaPrec[23]; // Plage de 49 à 71 -> 23 valeurs (71 - 49 + 1)
 public:
     // Constructeur pour initialiser les valeurs si nécessaire
-    NoteManager() {
+    NotePrec() {
         for (int i = 0; i < 23; i++) {
             notaPrec[i] = 0; // Initialisation à 0
         }
@@ -98,6 +106,9 @@ NotePrec notePrecChord_3;
 NotePrec notePrecChord_5;
 
 NotePrec notePrecDBL;
+
+
+
 
 
 //***************************************************************
@@ -262,6 +273,28 @@ void noteOffUSB(byte channel, byte pitch, byte velocity) {
 void noteDblOnUSB(byte channel, byte pitch, byte velocity) {
   midiEventPacket_t noteOn = {0x09, 0x90 | channel, pitch, velocity};
   MidiUSB.sendMIDI(noteOn);
+}
+
+
+
+
+
+//****************************************************************************************************
+// midi standard
+
+void noteOn(byte channel, byte pitch, byte velocity) {
+  velocityAverage = (alpha * velocity) + ((1 - alpha) * velocityAverage);
+  MIDI.sendNoteOn(pitch, velocity, channel);
+}
+
+void noteOff(byte channel, byte pitch, byte velocity) {
+  MIDI.sendNoteOff(pitch, 0, channel);
+}
+
+
+// les notes en dbl ne sont pas utilisées pour calculer la velocity moyenne
+void noteDblOn(byte channel, byte pitch, byte velocity) {
+  MIDI.sendNoteOn(pitch, velocity, channel);
 }
 
 
@@ -481,7 +514,7 @@ void play(int pitchInt, byte velocity){
             notePrec.set(pitchInt, nota);
             pitchPrec = pitchInt;
             byte notaByte = static_cast<byte>(nota);
-            noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+            noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
             MidiUSB.flush(); 
 
 
@@ -490,7 +523,7 @@ void play(int pitchInt, byte velocity){
             nota = getMidiNote(nota, mouvement);
             notePrec.set(pitchInt, nota);
             byte notaByte = static_cast<byte>(nota);
-            noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+            noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
             MidiUSB.flush();   
           
             if (modeChords == true){
@@ -499,20 +532,20 @@ void play(int pitchInt, byte velocity){
                       int notaTemp = getMidiNote(nota, 2);
                       notePrec_3.set(pitchInt, notaTemp);
                       notaByte = static_cast<byte>(notaTemp);
-                      noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                      noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
                       MidiUSB.flush();    
 
                     } else if (chordNoteNbr==3){
                       int notaTemp = getMidiNote(nota, 2);
                       notePrec_3.set(pitchInt, notaTemp);
                       notaByte = static_cast<byte>(notaTemp);
-                      noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                      noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
                       MidiUSB.flush();
 
                       notaTemp = getMidiNote(notaTemp, 2);
                       notePrec_5.set(pitchInt, notaTemp);
                       byte notaByte = static_cast<byte>(notaTemp);
-                      noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                      noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
                       MidiUSB.flush();
                   }
 
@@ -526,7 +559,7 @@ void play(int pitchInt, byte velocity){
             
             notePrec.set(pitchInt, nota);
             byte notaByte = static_cast<byte>(nota);
-            noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+            noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
             MidiUSB.flush();   
 
             if (modeChords == true){
@@ -534,13 +567,13 @@ void play(int pitchInt, byte velocity){
                       int notaTemp = getMidiNoteChord(nota, 1);
                       notePrec_3.set(pitchInt, notaTemp);
                       notaByte = static_cast<byte>(notaTemp);
-                      noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                      noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
                       MidiUSB.flush();
 
                       notaTemp = getMidiNoteChord(notaTemp, 1);
                       notePrec_5.set(pitchInt, notaTemp);
                       byte notaByte = static_cast<byte>(notaTemp);
-                      noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                      noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
                       MidiUSB.flush();
 
             }
@@ -554,19 +587,19 @@ void play(int pitchInt, byte velocity){
             
             notePrecChord.set(pitchInt, notaChord);
             byte notaByte = static_cast<byte>(notaChord);
-            noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+            noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
             MidiUSB.flush();
 
             int notaTemp = getMidiNoteChord(notaChord, 1);
             notePrecChord_3.set(pitchInt, notaTemp);
             notaByte = static_cast<byte>(notaTemp);
-            noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+            noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
             MidiUSB.flush();
 
             notaTemp = getMidiNoteChord(notaTemp, 1);
             notePrecChord_5.set(pitchInt, notaTemp);
             notaByte = static_cast<byte>(notaTemp);
-            noteOnUSB(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+            noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
             MidiUSB.flush();
 
 
@@ -588,13 +621,13 @@ void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
 
     char dblChar = dblLine.charAt(pos);
     //debugln(dblChar);
-  if (dblChar=="-"){
+  if (dblChar=='-'){
 
-  } else if (dblChar=="_"){
+  } else if (dblChar=='_'){
 
         byte notaBytePrec = static_cast<byte>(notaDBL);
-        noteOffUSB(4, notaBytePrec, 0);  // Channel 0, middle C, normal velocity
-        MidiUSB.flush();
+        noteOff(4, notaBytePrec, 0);  // Channel 0, middle C, normal velocity
+        
 
 
   } else {
@@ -641,8 +674,8 @@ void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
       if (mouvement!=-99){
 
         byte notaBytePrec = static_cast<byte>(notaDBL);
-        noteOffUSB(4, notaBytePrec, 0);  // Channel 0, middle C, normal velocity
-        MidiUSB.flush();
+        noteOff(4, notaBytePrec, 0);  // Channel 0, middle C, normal velocity
+        
 
 
           if (mouvementChord == false)  {  // si on a des symbols / ) [...
@@ -671,10 +704,9 @@ void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
             }
 
             byte notaByte = static_cast<byte>(notaDBL);
-            byte velocityAverageOn = 0.8*velocityAverage;
+            byte velocityAverageOn = dblAttenuation*velocityAverage;
             //noteOnUSB(4, notaByte, velocityAverageOn); // comme ça le valome va diminuer petit à petit
-            noteDblOnUSB(4, notaByte, velocityAverageOn);
-            MidiUSB.flush();   
+            noteDblOn(4, notaByte, velocityAverageOn);
 
           } else { // si on a : n ou p
 
@@ -691,9 +723,8 @@ void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
 
             notaDBL = getMidiNoteChord(notaDBL, mouvement);
             byte notaByte = static_cast<byte>(notaDBL);
-            byte velocityAverageOn = 0.8*velocityAverage;
-            noteDblOnUSB(4, notaByte, velocityAverageOn);   // Channel 0, middle C, normal velocity
-            MidiUSB.flush();   
+            byte velocityAverageOn = dblAttenuation*velocityAverage;
+            noteDblOn(4, notaByte, velocityAverageOn);   // Channel 0, middle C, normal velocity
 
           } 
       }
@@ -751,7 +782,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
 
     byte notaByte = static_cast<byte>(notePrecChord.get(pitchInt));
 
-      noteOffUSB(3, notaByte, velocity);  // Channel 0, middle C, normal velocity
+      noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
       MidiUSB.flush();
 
       int noteprecTemp = notePrecChord_3.get(pitchInt);
@@ -759,7 +790,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       if (noteprecTemp!=0){
         notaByte = static_cast<byte>(noteprecTemp);
 
-        noteOffUSB(3, notaByte, velocity);  // Channel 0, middle C, normal velocity
+        noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
         MidiUSB.flush();
         notePrecChord.set(pitchInt, 0);
       }
@@ -769,7 +800,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       if (noteprecTemp!=0){
         notaByte = static_cast<byte>(noteprecTemp);
 
-        noteOffUSB(3, notaByte, velocity);  // Channel 0, middle C, normal velocity
+        noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
         MidiUSB.flush();
         notePrecChord.set(pitchInt, 0);
       }
@@ -782,7 +813,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       
       byte notaByte = static_cast<byte>(notePrec.get(pitchInt));
 
-      noteOffUSB(3, notaByte, velocity);  // Channel 0, middle C, normal velocity
+      noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
       MidiUSB.flush();
 
       int noteprecTemp = notePrec_3.get(pitchInt);
@@ -790,7 +821,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       if (noteprecTemp!=0){
         notaByte = static_cast<byte>(noteprecTemp);
 
-        noteOffUSB(3, notaByte, velocity);  // Channel 0, middle C, normal velocity
+        noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
         MidiUSB.flush();
         notePrec.set(pitchInt, 0);
       }
@@ -800,7 +831,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       if (noteprecTemp!=0){
         notaByte = static_cast<byte>(noteprecTemp);
 
-        noteOffUSB(3, notaByte, velocity);  // Channel 0, middle C, normal velocity
+        noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
         MidiUSB.flush();
         notePrec.set(pitchInt, 0);
       }
@@ -843,16 +874,18 @@ String getDBL(String input) {
     return input.substring(lastSeparator + 1); // Extraire la sous-chaîne après le dernier ';'
 }
 
+
 void setup()
 {
     initNetwork();
     pinMode(LED, OUTPUT);
-	
+
+
     MIDI.setHandleNoteOn(handleNoteOn); 
     MIDI.setHandleNoteOff(handleNoteOff);    
     MIDI.begin(MIDI_CHANNEL_OMNI);
-
-    
+    MIDI.turnThruOff();
+     
 }
 
 void loop()
@@ -877,6 +910,8 @@ void loop()
 
       String message = String(packetBuffer);
       int separatorIndex = message.indexOf(';');
+      
+
 
       if (separatorIndex != -1) {
 
@@ -937,8 +972,13 @@ void loop()
           precMillisNote = millis();
         } 
 
-      
 
     }
 
 }
+
+
+
+
+
+
