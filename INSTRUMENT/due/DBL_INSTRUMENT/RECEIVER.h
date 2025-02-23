@@ -20,7 +20,7 @@ char packetBuffer[20]; // Tampon pour stocker les données UDP reçues
 
 void initNetwork(){
   Ethernet.begin(mac, ip);
- 
+
   udp.beginMulticast(multicastIP, multicastPort);
   Serial.println("Récepteur prêt.");
 }

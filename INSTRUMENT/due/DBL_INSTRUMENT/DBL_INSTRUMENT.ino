@@ -2,7 +2,7 @@
 #include <MIDIUSB.h>
 #include "RECEIVER.h"
 
-#define DEBUG 0
+#define DEBUG 1
 
 #if DEBUG
   #define debug(x) Serial.print(x)
@@ -50,6 +50,8 @@ bool modeChords = false;
 int chordNoteNbr=1;
 
 bool modeFree = false;
+bool modeRandom = false;
+
 
 
 /// dbl
@@ -321,26 +323,33 @@ void noteDblOn(byte channel, byte pitch, byte velocity) {
 int dblDecode(int dbl) {
 
   if (modeFree==false){
+    
+    
+    int coeff = 1;
+    if (modeRandom==true){
+    coeff = random(2) * 2 - 1;
+    }
+
 
     if (dbl==64){  //note a, /
-      return 1;
+      return coeff*1;
     }else if (dbl==65){ // a#, /
-      return 1;
+      return coeff*1;
     }else if (dbl==66){ //b, )
-      return 2;
+      return coeff*2;
     }else if (dbl==67){ //c, )
-      return 2;
+      return coeff*2;
     }else if (dbl==68){ //c#, ]
-      return 3;
+      return coeff*3;
     }else if (dbl==69){ //d, ]
-      return 3;
+      return coeff*3;
     }else if (dbl==70){ //d#, }
-      return 4;
+      return coeff*4;
     }
 	
 	
 	else if (dbl==71){ // symbole O ->tonique haut
-      return 12;
+      return coeff*12;
     }	
     
     else if (dbl==62){ // g#, 
@@ -348,30 +357,30 @@ int dblDecode(int dbl) {
     }  
     
     else if (dbl==60){ // g , 
-      return -1;
+      return -1*coeff;
     }else if (dbl==59){ //f#, 
-      return -1;
+      return -1*coeff;
     }else if (dbl==58){ //f, (
-      return -2;
+      return -2*coeff;
     }else if (dbl==57){ //e, (
-      return -2;
+      return -2*coeff;
     }else if (dbl==56){ //d#, [
-      return -3;
+      return -3*coeff;
     }else if (dbl==55){ //d, [
-      return -3;
+      return -3*coeff;
     }else if (dbl==54){ //c#, {
-      return -4;
+      return -4*coeff;
     }
 	
     else if (dbl==53){ // symbole o -> tonique bas
-      return -12;
+      return -12*coeff;
     } 	
     
     
     else if ((dbl==61)or(dbl==49)){ //p ou accord
-      return -1;
+      return -1*coeff;
     } else if ((dbl==63)or(dbl==51)){ // n ou accord
-      return 1;
+      return 1*coeff;
     } else if (dbl==50){ // le même accord
       return 0;
     }
@@ -406,7 +415,7 @@ int dblDecode(int dbl) {
     
     return ret;
 
-  }
+  } 
  
   
 
@@ -679,7 +688,7 @@ void play(int pitchInt, byte velocity){
 //####### fonction d'exécution d'une note ou un accord 
 
 void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
-
+  debugln("note");
     char dblChar = dblLine.charAt(pos);
     //debugln(dblChar);
   if (dblChar=='-'){
@@ -815,7 +824,13 @@ void handleNoteOn(byte channel, byte pitch, byte velocity)
     } else if (pitchInt==40){
       modeFree = true;
       debugln("mode free dans handleNoteOn");
-    }else {
+    } else if (pitchInt==41){
+      modeRandom = true;
+      debugln("mode random dans handleNoteOn");
+    }
+    
+    
+    else {
         
          play(pitchInt, velocity);
 
@@ -839,7 +854,14 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       modeFree = false;
       debugln("mode free dans handleNoteOff");
     
-    } else if ((pitchInt>=49)and(pitchInt<=51)) { //accords
+    } else  if (pitchInt==41){
+
+      modeRandom = false;
+      debugln("mode random dans handleNoteOff");
+    
+    }    
+    
+    else if ((pitchInt>=49)and(pitchInt<=51)) { //accords
 
     byte notaByte = static_cast<byte>(notePrecChord.get(pitchInt));
 
@@ -936,21 +958,40 @@ String getDBL(String input) {
 }
 
 bool screenEnabled = false;
+
+int ethernetHW = 0;
+String ethernetStatus;
+
 void setup()
 {
+    serialBegin();
     initNetwork();
+    
+    
+    ethernetStatus = Ethernet.linkReport();
+    debug("ethernetHW : ");debugln(ethernetStatus);
+
+    if (ethernetStatus=="NO LINK"){
+      debugln("problème hardware ethernet");
+    } else {
+      ethernetHW = 1;
+      debugln("ethernet hardware OK");
+    }
+
+
     pinMode(LED, OUTPUT);
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 allocation failed"));
+    debugln(F("SSD1306 allocation failed"));
     //for(;;); // Don't proceed, loop forever
   } else {
-  Serial.println(F("Display OK"));
+  debugln(F("Display OK"));
   display.clearDisplay();
   screenEnabled = true;
   }
 
-
+  debug("screenEnabled : ");debugln(screenEnabled);
+  
     MIDI.setHandleNoteOn(handleNoteOn); 
     MIDI.setHandleNoteOff(handleNoteOff);    
     MIDI.begin(MIDI_CHANNEL_OMNI);
@@ -960,10 +1001,15 @@ void setup()
     
 }
 
+int packetSize =0;
 void loop()
 {
+  if (ethernetHW == 1){
   int packetSize = udp.parsePacket();
-  if (packetSize) {
+  }
+
+  if ((packetSize) and (ethernetHW == 1)) {
+    
  
     //debugln(velocityAverage);
     
@@ -1030,6 +1076,8 @@ void loop()
       
 
     }
+    
+    
     }else {
       MIDI.read();
       unsigned long currentMillis = millis();
