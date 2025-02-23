@@ -4,7 +4,17 @@
 #include <Ethernet3.h>
 #include <EthernetUdp3.h>
 
+//*************** display ********************************
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
+#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+//**********************************************************
 
 // Configuration réseau
 byte mac[] = { 0xA8, 0x61, 0x0A, 0xAE, 0x26, 0x35 };
@@ -84,7 +94,7 @@ int getLignesNumber(String fileName) {
   File file = SD.open(fileName); // Ouvre le fichier en lecture
   if (!file) {
     Serial.println("Erreur d'ouverture du fichier !");
-    return;
+    return -1;
   }
 
   int currentLine = 0; // Compteur de lignes
@@ -189,12 +199,23 @@ nLignes--;// on doit compter les lignes d'harmonie et exclure la première ligne
 
 }
 
-
+bool screenEnabled = false;
 void setup() {
   pinMode(8, INPUT);// PIN 8 -> 1-> webserver mode 0-> multicast mode 
  
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial);
+
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    //for(;;); // Don't proceed, loop forever
+  } else {
+  Serial.println(F("Display OK"));
+  display.clearDisplay();
+  screenEnabled = true;
+  }
+
+
 
   if (!SD.begin(chipSelect)) {
     Serial.println("initialization failed. Things to check:");
@@ -268,7 +289,14 @@ void loop() {
   udp.write(payload.c_str(), payload.length());//print(payload);
   udp.endPacket();
 
-  delay(bpmTime);
+  infoDisplay(payload, " /");
+
+  delay(bpmTime/2);
+
+  infoDisplay(payload, "\\ ");
+
+  delay(bpmTime/2);
+
   ligneActive++;
 
   if (ligneActive>=nLignes){
@@ -309,6 +337,9 @@ void loop() {
 //======================================================
 /// utilisatyion server web 
 //======================================================
+
+    displayWeb();
+
     initialisation=true; // à la reconnexion on enverra 4 paquets vides 
     ligneActive = 0;
     EthernetClient client = server.available();
@@ -445,4 +476,202 @@ void printDirectory(File dir, int numTabs) {
     }
     entry.close();
   }
+}
+
+
+//************************************************************************
+// display 
+//************************************************************************
+
+void displayWeb(){
+
+  if (screenEnabled==true){
+    display.clearDisplay();
+
+    display.setTextColor(WHITE);
+    //display.setFont(&FreeMono9pt7b);
+    display.setCursor(0, 10);
+    display.setTextSize(3);
+    display.println("Setting");
+    display.setTextSize(2);
+    display.println("Web Server");
+    
+    display.setTextSize(1);
+    display.println("port 80");
+    display.display();
+  }
+}
+
+
+void infoDisplay(String dblLine, String curs){
+
+  if (screenEnabled==true){
+    int chInt,scInt;
+    String dblSymbols;
+
+    chInt = getChord(dblLine);
+    scInt = getScale(dblLine);
+    dblSymbols = getDBL(dblLine);
+    
+
+    display.clearDisplay();
+
+    display.drawLine(0,15,SCREEN_WIDTH,15, WHITE);
+    display.drawLine(0,SCREEN_HEIGHT-2,SCREEN_WIDTH,SCREEN_HEIGHT-2, WHITE);
+    display.setTextColor(WHITE);
+
+    display.setCursor(SCREEN_WIDTH-30, 6);
+
+    display.setTextSize(1);
+    display.print(ligneActive+1);
+    display.print("/");
+    display.print(nLignes);
+
+
+    //display.setFont(&FreeMono9pt7b);
+    display.setCursor(0, 20);
+    display.setTextSize(2);
+    display.print(curs);
+    display.setTextSize(3);
+    display.print(getChord(chInt));
+    display.setTextSize(3);
+    display.println("");
+
+    display.setTextSize(1);
+    display.println(getScaleLabel(scInt));
+    display.setTextSize(1);
+    display.println(dblSymbols);
+    display.display();
+  }
+}
+
+String getChord(int accInt) {
+    switch (accInt) {
+        case 2192: return "C";
+        case 2320: return "Cm";
+        case 1096: return "C#";
+        case 1160: return "C#m";
+        case 548:  return "D";
+        case 580:  return "Dm";
+        case 274:  return "D#";
+        case 290:  return "D#m";
+        case 137:  return "E";
+        case 145:  return "Em";
+        case 2116: return "F";
+        case 2120: return "Fm";
+        case 1058: return "F#";
+        case 1060: return "F#m";
+        case 529:  return "G";
+        case 530:  return "Gm";
+        case 2312: return "G#";
+        case 265:  return "G#m";
+        case 1156: return "A";
+        case 2180: return "Am";
+        case 578:  return "A#";
+        case 1090: return "A#m";
+        case 289:  return "B";
+        case 545:  return "Bm";
+        case 2336: return "Cdim";
+        case 1168: return "C#dim";
+        case 584:  return "Ddim";
+        case 292:  return "D#dim";
+        case 146:  return "Edim";
+        case 73:   return "Fdim";
+        case 2084: return "F#dim";
+        case 1042: return "Gdim";
+        case 521:  return "G#dim";
+        case 2308: return "Adim";
+        case 1154: return "A#dim";
+        case 577:  return "Bdim";
+        default:   return "Unknown";
+    }
+}
+
+
+
+
+String getScaleLabel(int scaleInt) {
+    switch (scaleInt) {
+		case 2773 : return "C major / A minor";
+		case 3434 : return "C# major / A# minor";
+		case 1717 : return "D major / B minor";
+		case 2906 : return "D# major / C minor";
+		case 1453 : return "E major / C# minor";
+		case 2774 : return "F major / D minor";
+		case 1387 : return "F# major / D# minor";
+		case 2741 : return "G major / E minor";
+		case 3418 : return "G# major / F minor";
+		case 1709 : return "A major / F# minor";
+		case 2902 : return "Bb major / G minor";
+		case 1451 : return "B major / G# minor";
+		case 2901 : return "C melodic minor";
+		case 3498 : return "C# melodic minor";
+		case 1749 : return "D melodic minor";
+		case 2922 : return "D# melodic minor";
+		case 1461 : return "E melodic minor";
+		case 2778 : return "F melodic minor";
+		case 1389 : return "F# melodic minor";
+		case 2742 : return "G melodic minor";
+		case 1371 : return "G# melodic minor";
+		case 2733 : return "A melodic minor";
+		case 3414 : return "Bb melodic minor";
+		case 1707 : return "B melodic minor";
+		case 2905 : return "C harmonic minor";
+		case 3500 : return "C# harmonic minor";
+		case 1750 : return "D harmonic minor";
+		case 875  : return "D# harmonic minor";
+		case 2485 : return "E harmonic minor";
+		case 3290 : return "F harmonic minor";
+		case 1645 : return "F# harmonic minor";
+		case 2870 : return "G harmonic minor";
+		case 1435 : return "G# harmonic minor";
+		case 2765 : return "A harmonic minor";
+		case 3430 : return "Bb harmonic minor";
+		case 1715 : return "B harmonic minor";
+		case 1718 : return "D harmonic major";
+		case 859  : return "D# harmonic major";
+		case 1459 : return "B harmonic major";
+		case 1643 : return "F# harmonic major";
+		case 1741 : return "A harmonic major";
+		case 2477 : return "E harmonic major";
+		case 2777 : return "C harmonic major";
+		case 2869 : return "G harmonic major";
+		case 2918 : return "A# harmonic major";
+		case 3286 : return "F harmonic major";
+		case 3436 : return "C# harmonic major";
+		case 3482 : return "G# harmonic major";
+    default:   return "Unknown";
+    }
+}
+
+
+
+int getScale(String input) {
+    int firstSeparator = input.indexOf(';'); // Trouver le premier ';'
+    if (firstSeparator == -1) {
+        return 0; // Retourner la chaîne entière si aucun séparateur trouvé
+    }
+
+    return  input.substring(0, firstSeparator).toInt();// Extraire la partie avant le premier ';'
+}
+
+int getChord(String input) {
+    int firstSeparator = input.indexOf(';');  // Trouver le premier ';'
+    if (firstSeparator == -1) {
+        return 0; // Pas de deuxième élément
+    }
+    int secondSeparator = input.indexOf(';', firstSeparator + 1); // Trouver le second ';'
+    if (secondSeparator == -1) {
+        return input.substring(firstSeparator + 1).toInt(); // Retourner le reste s'il n'y a que deux éléments
+    }
+
+    return input.substring(firstSeparator + 1, secondSeparator).toInt(); // Extraire le deuxième élément
+}
+
+String getDBL(String input) {
+    int lastSeparator = input.lastIndexOf(';'); // Trouver la dernière occurrence de ';'
+    if (lastSeparator == -1) {
+        return input; // Retourner la chaîne entière si aucun séparateur trouvé
+    }
+    return input.substring(lastSeparator + 1); // Extraire la sous-chaîne après le dernier ';'
 }
