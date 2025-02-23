@@ -7,9 +7,11 @@
 #if DEBUG
   #define debug(x) Serial.print(x)
   #define debugln(x) Serial.println(x)
+  #define serialBegin() Serial.begin(115200)
 #else
   #define debug(x) 
   #define debugln(x)
+  #define serialBegin() 
 #endif
 
 
@@ -334,9 +336,12 @@ int dblDecode(int dbl) {
       return 3;
     }else if (dbl==70){ //d#, }
       return 4;
-    }else if (dbl==71){ //e, }
-      return 4;
     }
+	
+	
+	else if (dbl==71){ // symbole O ->tonique haut
+      return 12;
+    }	
     
     else if (dbl==62){ // g#, 
       return 0;
@@ -356,9 +361,11 @@ int dblDecode(int dbl) {
       return -3;
     }else if (dbl==54){ //c#, {
       return -4;
-    }else if (dbl==53){ //c, {
-      return -4;
-    } 
+    }
+	
+    else if (dbl==53){ // symbole o -> tonique bas
+      return -12;
+    } 	
     
     
     else if ((dbl==61)or(dbl==49)){ //p ou accord
@@ -532,7 +539,7 @@ void play(int pitchInt, byte velocity){
 
 
         } else {
-          if ((pitchInt>=54) and (pitchInt<=71) and (pitchInt!=61) and (pitchInt!=63))  {  // si on a des symbols / ) [...
+          if ((pitchInt>=54) and (pitchInt<=70) and (pitchInt!=61) and (pitchInt!=63))  {  // si on a des symbols / ) [...
             nota = getMidiNote(nota, mouvement);
             notePrec.set(pitchInt, nota);
             byte notaByte = static_cast<byte>(nota);
@@ -565,7 +572,48 @@ void play(int pitchInt, byte velocity){
             }
 
 
-          } else if ((pitchInt==61) or (pitchInt==63)){ // si on a : n ou p
+          } else if (pitchInt==71){ // on monte vers la tonique
+
+              int ottava = nota/12; // en int pas de reste
+              int baseottavaMidi = ottava*12;//ça tombe sur le do de l'octave en cours
+
+              if (baseottavaMidi+tonica>nota){
+
+                  nota = baseottavaMidi+tonica; 
+                  notePrec.set(pitchInt, nota);
+                  byte notaByte = static_cast<byte>(nota);
+                  noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                    
+              } else {
+                  nota = baseottavaMidi+tonica+12; 
+                  notePrec.set(pitchInt, nota);
+                  byte notaByte = static_cast<byte>(nota);
+                  noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                                 
+              }
+
+          } else if (pitchInt==53){//on descent vers la tonique
+
+
+              int ottava = nota/12; // en int pas de reste
+              int baseottavaMidi = ottava*12;//ça tombe sur le do de l'octave en cours
+
+              if (baseottavaMidi+tonica<nota){
+
+                  nota = baseottavaMidi+tonica; 
+                  notePrec.set(pitchInt, nota);
+                  byte notaByte = static_cast<byte>(nota);
+                  noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                    
+              } else {
+                  nota = baseottavaMidi+tonica-12; 
+                  notePrec.set(pitchInt, nota);
+                  byte notaByte = static_cast<byte>(nota);
+                  noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
+                                 
+              }          
+
+          }  else if ((pitchInt==61) or (pitchInt==63)){ // si on a : n ou p
             
             nota = getMidiNoteChord(nota, mouvement);
 
