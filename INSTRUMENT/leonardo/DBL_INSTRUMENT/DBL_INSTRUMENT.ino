@@ -17,7 +17,6 @@
 
 #define LED 13
 
-
 //MIDI_CREATE_DEFAULT_INSTANCE();
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1,  MIDIRX);
 
@@ -955,6 +954,7 @@ String getDBL(String input) {
 
 void setup()
 {
+    
     initNetwork();
     pinMode(LED, OUTPUT);
     serialBegin();  

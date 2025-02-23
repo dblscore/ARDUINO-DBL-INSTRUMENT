@@ -4,6 +4,8 @@
 #include <Ethernet3.h>
 #include <EthernetUdp3.h>
 
+
+
 // Configuration réseau
 byte mac[] = { 0xA8, 0x61, 0x0A, 0xAE, 0x26, 0x35 };
 IPAddress ip(192, 168, 100, 10); // Adresse IP du récepteur
