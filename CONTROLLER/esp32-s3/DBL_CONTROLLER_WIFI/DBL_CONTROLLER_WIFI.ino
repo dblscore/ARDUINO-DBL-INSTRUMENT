@@ -309,7 +309,7 @@ void loop() {
 
 
   // si le piN 8 est débranché on gère l'envoi du flux multicast 
-  if (digitalRead(8)==0){
+  if (digitalRead(8)){
  
   if (initialisation==false){
   Serial.println(digitalRead(8));
@@ -321,9 +321,7 @@ void loop() {
 
   //Serial.println(payload.length());
   //corr
-  //udp.write(payload.c_str(), payload.length());
   udp.write((const uint8_t*)payload.c_str(), payload.length());
-
   udp.endPacket();
 
   infoDisplay(payload, " /");
