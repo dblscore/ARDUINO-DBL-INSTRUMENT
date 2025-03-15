@@ -292,7 +292,7 @@ void noteOn(byte channel, byte pitch, byte velocity) {
 
   //noteOnUSB(channel,pitch, velocity);
   
-  //velocityAverage = (alpha * velocity) + ((1 - alpha) * velocityAverage);
+  velocityAverage = (alpha * velocity) + ((1 - alpha) * velocityAverage);
   MIDI.sendNoteOn(pitch, velocity, channel);
   
 }
@@ -802,7 +802,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity)
 {
 
 		debug("noteon");debugln(pitch);
-    digitalWrite(LED, HIGH);
+    
     int pitchInt = static_cast<int>(pitch);
 
     // si on jour le Do 36 on active le mode accord 
@@ -834,7 +834,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity)
 
 void handleNoteOff(byte channel, byte pitch, byte velocity)
 {
-		digitalWrite(LED, LOW);
+		
 		
     int pitchInt = static_cast<int>(pitch);
 
@@ -976,7 +976,7 @@ void loop()
 {
   int packetSize = udp.parsePacket();
   if (packetSize) {
- 
+    digitalWrite(LED, !digitalRead(LED));
     //debugln(velocityAverage);
     
     /// calcul du temps de la mesure 
