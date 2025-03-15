@@ -61,9 +61,10 @@ DBL Instrument is an open-source project implementing a **Degree-Based Language 
 
 ## Resources and Documentation
 
-- **Scientific article on DBL**: [JIM 2021](https://www.youtube.com/watch?v=TLWImOY1gJg)
+- **Scientific article on DBL**: [JIM 2021](https://hal.science/hal-03313637v1/file/article_le_langage_DBLV4.pdf)
+- **Scientific conference on DBL**: [JIM 2021](https://www.youtube.com/watch?v=TLWImOY1gJg)
 - **Demo video**: [YouTube](https://www.youtube.com/watch?v=SwaCKtd4l5s)
-- **DBL website**: [dbl-score.net](https://www.dbl-score.net/)
+- **software interpreter DBL to MIDI**: [dbl-score.net](https://www.dbl-score.net/)
 
 ## Contributions
 
@@ -80,5 +81,5 @@ This project is licensed under the **MIT License**.
 
 ---
 
-*Created by [Emanuele Di Mauro](mailto:emanuele.dimauro@gmail.com), inspired by research in computational musicology.*
+*Created by [Emanuele Di Mauro](mailto:dblscore@gmail.com), inspired by research in computational musicology.*
 
