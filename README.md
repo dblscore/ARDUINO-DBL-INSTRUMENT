@@ -1,4 +1,4 @@
-# DBL Instrument - A Real-Time MIDI Interpreter
+# DBL Instrument - A Real-Time DBL Interpreter
 
 ## Introduction
 
