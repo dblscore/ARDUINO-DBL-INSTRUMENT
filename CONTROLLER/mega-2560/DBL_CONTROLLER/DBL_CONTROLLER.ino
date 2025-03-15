@@ -24,7 +24,6 @@ unsigned int multicastPort = 5555;   // Port multicast
 
 EthernetUDP udp;
 
-
 const int chipSelect = 4;
 File root;
 
@@ -40,48 +39,6 @@ int nLignes;
 int ligneActive=0;
 
 bool initialisation = true;
-/////////////////////////////////////////////////////////////////////////
-///////// RECUPERATION DE SCALE ET CHORD EN INT (PAS FONCTIONNELLE)
-/////////////////////////////////////////////////////////////////////////
-
-void getLigneInt(String fileName, int nLigne) {
-  File file = SD.open(fileName); // Ouvre le fichier en lecture
-  if (!file) {
-    Serial.println("Erreur d'ouverture du fichier !");
-    return;
-  }
-
-  int currentLine = 0; // Compteur de lignes
-  String lineContent;
-
-  while (file.available()) {
-    lineContent = file.readStringUntil('\n'); // Lire jusqu'à la fin de la ligne
-
-    if (currentLine == nLigne) { 
-      // Extraire les données de la ligne
-      int separatorIndex = lineContent.indexOf(';');
-      if (separatorIndex != -1) {
-        scale = lineContent.substring(0, separatorIndex).toInt(); // Convertir en entier
-        chord = lineContent.substring(separatorIndex + 1).toInt(); // Enlever les espaces
-        Serial.println("dans la fonction");
-        Serial.println(scale);
-        Serial.println(chord);
-      } else {
-        Serial.println("Erreur de format dans la ligne.");
-      }
-      break;
-    }
-    currentLine++;
-  }
-
-  if (currentLine != nLigne) {
-    Serial.println("Ligne demandée non trouvée !");
-  }
-
-  file.close(); // Fermer le fichier
-}
-
-
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -194,17 +151,21 @@ for(int i=0;i<nLignes;i++){
 
 }
 
-nLignes--;// on doit compter les lignes d'harmonie et exclure la première ligne tempo ('bpm=120')
+nLignes--;// on doit compter les lignes d'harmonie et exclure la première ligne tempo (exemple 'bpm=120')
 
 
 }
 
 bool screenEnabled = false;
 void setup() {
-  pinMode(8, INPUT);// PIN 8 -> 1-> webserver mode 0-> multicast mode 
+  
+  // PIN 8 :  1-> webserver mode 
+  //            0-> multicast mode
+  
+  pinMode(8, INPUT); 
  
   Serial.begin(115200);
-  while (!Serial);
+  delay(1000);
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -218,11 +179,13 @@ void setup() {
 
 
   if (!SD.begin(chipSelect)) {
-    Serial.println("initialization failed. Things to check:");
-    Serial.println("1. is a card inserted?");
-    Serial.println("2. is your wiring correct?");
-    Serial.println("3. did you change the chipSelect pin to match your shield or module?");
-    Serial.println("Note: press reset button on the board and reopen this Serial Monitor after fixing your issue!");
+      Serial.println("initialization failed. Things to check:");
+      Serial.println("1. is a card inserted?");
+      Serial.println("2. is your wiring correct?");
+      Serial.println("3. did you change the chipSelect pin to match your shield or module?");
+      Serial.println("Note: press reset button on the board and reopen this Serial Monitor after fixing your issue!");
+    
+    // si pas de carte SD on bloque le code
     while (true);
   }
 
@@ -244,24 +207,10 @@ void setup() {
     Serial.println("fichier ouvert !");
   }
 
-
-
-
   getFileDbl(dblFileName);
 
   Ethernet.begin(mac, ip);
   server.begin();//server web
-
-  /*
-  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-    Serial.println("Shield Ethernet non détecté");
-    while (true);
-  }
-  
-  if (Ethernet.linkStatus() == LinkOFF) {
-    Serial.println("Pas de connexion Ethernet détectée");
-  }
-  */
 
   // Initialisation UDP
   udp.beginMulticast(multicastIP, multicastPort);
@@ -288,11 +237,13 @@ void loop() {
   //Serial.println(payload.length());
   udp.write(payload.c_str(), payload.length());//print(payload);
   udp.endPacket();
-
+  
+  // gestion affichage 
   infoDisplay(payload, " /");
 
   delay(bpmTime/2);
 
+  // changement affichahe au milieu de la mesure
   infoDisplay(payload, "\\ ");
 
   delay(bpmTime/2);
@@ -307,22 +258,22 @@ void loop() {
 
   // envoi de 4 paquets d'initialisation  
   udp.beginPacket(multicastIP, multicastPort);
-  udp.write("init", 4);//print(payload);
+  udp.write("init", 4);
   udp.endPacket();
   delay(bpmTime);
 
   udp.beginPacket(multicastIP, multicastPort);
-  udp.write("init", 4);//print(payload);
+  udp.write("init", 4);
   udp.endPacket();
   delay(bpmTime);
 
   udp.beginPacket(multicastIP, multicastPort);
-  udp.write("init", 4);//print(payload);
+  udp.write("init", 4);
   udp.endPacket();
   delay(bpmTime);
 
   udp.beginPacket(multicastIP, multicastPort);
-  udp.write("init", 4);//print(payload);
+  udp.write("init", 4);
   udp.endPacket();
   delay(bpmTime);
 
@@ -449,9 +400,6 @@ void loop() {
 }
 
 
-
-
-
 }
 
 void printDirectory(File dir, int numTabs) {
@@ -527,8 +475,6 @@ void infoDisplay(String dblLine, String curs){
     display.print("/");
     display.print(nLignes);
 
-
-    //display.setFont(&FreeMono9pt7b);
     display.setCursor(0, 20);
     display.setTextSize(2);
     display.print(curs);
@@ -545,6 +491,8 @@ void infoDisplay(String dblLine, String curs){
   }
 }
 
+
+// fonction pour affichage de l'accord 
 String getChord(int accInt) {
     switch (accInt) {
         case 2192: return "C";
@@ -589,7 +537,7 @@ String getChord(int accInt) {
 
 
 
-
+// fonction pour affichage de la gamme 
 String getScaleLabel(int scaleInt) {
     switch (scaleInt) {
 		case 2773 : return "C major / A minor";
