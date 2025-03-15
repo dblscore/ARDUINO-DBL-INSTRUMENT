@@ -17,12 +17,7 @@
 
 #define LED 13
 
-//MIDI_CREATE_DEFAULT_INSTANCE();
-MIDI_CREATE_INSTANCE(HardwareSerial, Serial1,  MIDIRX);
-
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1,  MIDI);
-
-
 
 //========================================================
 
@@ -39,9 +34,12 @@ bool modeFree = false;
 bool modeRandom = false;
 
 
-/// dbl
-unsigned long precMillis = 0; // 0 pour initialisation, la première fois qu'on recois un paquet precMillis = millis()
-unsigned long timeMeasure = 0; // 0 pour initialisation, puis timeMeasure sera millis()- precMillis
+/// ***** dbl *********************
+// 0 pour initialisation, 
+//la première fois qu'on recois un paquet precMillis = millis()
+//puis timeMeasure sera millis()- precMillis
+unsigned long precMillis = 0; 
+unsigned long timeMeasure = 0; 
 unsigned long timeBit;
 int lenDblMeasure;
 String dblMeasure;
@@ -51,14 +49,20 @@ float dblAttenuation = 0.7;
 
 unsigned long precMillisNote;
 
-// velocity
-
+// ******** velocity *************
+// velocityAverage est une velocity lissée ajoustée à chaque noteOn
+// utilisé pour la velocity des notes en DBL envoyées par le contrôleur
 byte velocityAverage=80;
-float alpha = 0.3; // Facteur d'atténuation (entre 0 et 1)
+float alpha = 0.3; // Facteur d'atténuation (pour ajustement entre 0 et 1)
 
 
 //********************************************************
 // gestion des notes précédentes
+/*
+Il s'agit d'une classe qui permet d'avoir le souvenir de la note précédente 
+Utilisé pour attribuer la note selon le symbole DBL joué dans l'instrument 
+On considère 23 possibles touches avec les différents symboles DBL
+**/
 //********************************************************
 
 class NotePrec {
@@ -90,36 +94,44 @@ public:
     }
 };
 
-
+//\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
 //********* initiation *********************
+/*
+Initialement pas de note précédente donc on paramètre ici les différents noteprec
+*/
+//\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
+// note précédente pour les gammes 
 int nota = 59;
 int pitchPrec = 60;
+// note précédente pour les accords 
 int notaChord = 47;
+// note précédente pour la mélodie DBL (note plutôt basse, mais modifiable) 
 int notaDBL = 35;
 
+//*******************************************
+// instanciation des objects de classe 
+//*******************************************
+
+NotePrec notePrec;   // note précédente pour l'instrument 
+NotePrec notePrec_3; // note précédente pour la triade (utilisé si mode accord activé) 
+NotePrec notePrec_5; // note précédente pour la triade supérieure (utilisé si mode accord activé)
+
+NotePrec notePrecChord; // note précédente pour la tonique de l'accord (si on utilise les touches accords) 
+NotePrec notePrecChord_3; // note précédente pour la tierce de l'accord (si on utilise les touches accords)
+NotePrec notePrecChord_5; // note précédente pour la quinte de l'accord (si on utilise les touches accords)
+
+NotePrec notePrecDBL; // note précédente pour la mélodie DBL 
 
 
-NotePrec notePrec;
-NotePrec notePrec_3;
-NotePrec notePrec_5;
-
-NotePrec notePrecChord;
-NotePrec notePrecChord_3;
-NotePrec notePrecChord_5;
-
-NotePrec notePrecDBL;
-
-
-
-
-
-//***************************************************************
 //***************************************************************
 //******************** scales ***********************************
 //***************************************************************
-//***************************************************************
-
 /*
+Les gammes ne sont pas enregistré dans le programme
+Elles sont décodées à partir du numéro reçu par le controlleur 
+Ici les associations implicites entre numéro de la gamme et nom de la gamme : 
+
+
 2773 --> C major / A minor
 3434 --> C# major / A# minor
 1717 --> D major / B minor
@@ -171,8 +183,8 @@ NotePrec notePrecDBL;
 */
 
 ///////////////////////////////////////////////////////////////////////////////
-/// fonction qui récupère par exemple 2773 et qui renvoi un array des 7 notes
-/// de la gamme de Do Majeur 
+/// fonction qui récupère le numéro de la gamme (par exemple 2773, gamme de do majeur)
+/// et qui renvoi un array des 7 notes (par exemple {0,2,4,5,7,9,11})
 ///////////////////////////////////////////////////////////////////////////////
 
 int* gammeIntToArray(int number) {
@@ -191,14 +203,14 @@ int* gammeIntToArray(int number) {
 }
 
 //////////////////////////////////////////////////////////////////////
-/// fonction qui récupère 2192 et qui renvoi un array des 3 notes
-/// de l'accord de Do Majeur 
+/// fonction qui récupère le numéro de l'accord (par exemple 2192, do majeur)
+/// et qui renvoi un array des 3 notes (par exemple {0,4,7})
 //////////////////////////////////////////////////////////////////////
 int* accordIntToArray(int number) {
   static int result[3]; // Tableau pour stocker les résultats
   int index = 0;
 
-  // Parcours des 12 bits (comme le nombre est en binaire sur 12 bits)
+  // Parcourir 12 bits 
   for (int i = 0; i < 12; i++) {
     if ((number >> (11 - i)) & 1) {  // Vérifie si le bit est à 1
       result[index] = i;  // Ajouter la position sans la multiplication
@@ -210,12 +222,15 @@ int* accordIntToArray(int number) {
 }
 
 //***************************************************************
-//***************************************************************
 //******************** chords ***********************************
-//***************************************************************
 //***************************************************************
 
 /*
+
+Les accords ne sont pas enregistré dans le programme
+Ils sont décodés à partir du numéro reçu par le controlleur 
+Ici les associations implicites entre numéro de l'accord et nom de l'accord : 
+
 2192 --> C
 2320 --> Cm
 1096 --> C#
@@ -258,14 +273,19 @@ int* accordIntToArray(int number) {
 
 //****************************************************************************************************
 // midi usb
+//***************************************************************************************************
 
+// fonction utilisé pour la sortie MIDI en USB
 void noteOnUSB(byte channel, byte pitch, byte velocity) {
+  // on lisse la valeur de la velocity pour l'appliquer aux notes de la mélodie en DBL
   velocityAverage = (alpha * velocity) + ((1 - alpha) * velocityAverage);
+  
   midiEventPacket_t noteOn = {0x09, 0x90 | channel, pitch, velocity};
   MidiUSB.sendMIDI(noteOn);
   MidiUSB.flush();
 }
 
+// fonction utilisé pour la sortie MIDI en USB
 void noteOffUSB(byte channel, byte pitch, byte velocity) {
   midiEventPacket_t noteOff = {0x08, 0x80 | channel, pitch, velocity};
   MidiUSB.sendMIDI(noteOff);
@@ -273,7 +293,7 @@ void noteOffUSB(byte channel, byte pitch, byte velocity) {
 }
 
 
-// les notes en dbl ne sont pas utilisées pour calculer la velocity moyenne
+// fonction utilisé pour la sortie MIDI en USB
 void noteDblOnUSB(byte channel, byte pitch, byte velocity) {
   midiEventPacket_t noteOn = {0x09, 0x90 | channel, pitch, velocity};
   MidiUSB.sendMIDI(noteOn);
@@ -281,11 +301,13 @@ void noteDblOnUSB(byte channel, byte pitch, byte velocity) {
 }
 
 
-
-
-
 //****************************************************************************************************
-// midi standard
+// midi 
+/* Dans le code on utilise les fonction générique noteOn, noteOff.. 
+   Eventuellement si on veut une sortie MIDI sur connecteur à 5 pin on modifie ces fonctions 
+   en activanet le commentaire (doucle sortie MIDI et standard)
+*/
+//****************************************************************************************************
 
 void noteOn(byte channel, byte pitch, byte velocity) {
 
@@ -314,81 +336,96 @@ void noteDblOn(byte channel, byte pitch, byte velocity) {
 
 //####################################################################################################
 // Fonction DBL DECODE
-// Fonction générique pour obtenir une note relative, même si la note initiale n'est pas dans la gamme
-// il faut associer une note midi à un symbole dbl
+/* Récupère une des touches jouées et restitue la valeur 0, +1, -1, +2... selon la touche jouée
+*/
 //####################################################################################################
 int dblDecode(int dbl) {
-
+  
+  //-----------------------------------------------------------------
+  // si le mode free n'est pas activé 
+  // (mode DBL où chaque touche correspond à une variation de dedré)
+  //-----------------------------------------------------------------
   if (modeFree==false){
 
+    // si le mode random est activé un coefficient random +1 ou -1 est appliqué 
     int coeff = 1;
     if (modeRandom==true){
     coeff = random(2) * 2 - 1;
     }
 
-
-    if (dbl==64){  //note a, /
+    //******************************
+    // symboles relatifs à la gamme 
+    //******************************
+    if (dbl==64){  // symbole  /
       return 1*coeff;
-    }else if (dbl==65){ // a#, /
+    }else if (dbl==65){ // symbole  /
       return 1*coeff;
-    }else if (dbl==66){ //b, )
+    }else if (dbl==66){ //symbole  )
       return 2*coeff;
-    }else if (dbl==67){ //c, )
+    }else if (dbl==67){ //symbole  )
       return 2*coeff;
-    }else if (dbl==68){ //c#, ]
+    }else if (dbl==68){ //symbole  ]
       return 3*coeff;
-    }else if (dbl==69){ //d, ]
+    }else if (dbl==69){ //symbole  ]
       return 3*coeff;
-    }else if (dbl==70){ //d#, }
+    }else if (dbl==70){ //symbole  }
       return 4*coeff;
     }
     
-    else if (dbl==71){ // symbole O ->tonique haut
-      return 12*coeff;
-    }
-    
-    
-    else if (dbl==62){ // g#, 
+    else if (dbl==62){ // symbole  = 
       return 0;
     }  
     
-    else if (dbl==60){ // g , 
+    else if (dbl==60){ // symbole  \ 
       return -1*coeff;
-    }else if (dbl==59){ //f#, 
+    }else if (dbl==59){ //symbole  \ 
       return -1*coeff;
-    }else if (dbl==58){ //f, (
+    }else if (dbl==58){ //symbole  (
       return -2*coeff;
-    }else if (dbl==57){ //e, (
+    }else if (dbl==57){ //symbole  (
       return -2*coeff;
-    }else if (dbl==56){ //d#, [
+    }else if (dbl==56){ //symbole  [
       return -3*coeff;
-    }else if (dbl==55){ //d, [
+    }else if (dbl==55){ //symbole  [
       return -3*coeff;
-    }else if (dbl==54){ //c#, {
+    }else if (dbl==54){ //symbole  {
       return -4*coeff;
     }
-    
+
+    //******************************
+    // symboles relatifs à l'accord
+    //******************************
+
+    else if (dbl==71){ // symbole O ->tonique haut
+      return 12*coeff;
+    }
+
     else if (dbl==53){ // symbole o -> tonique bas
       return -12*coeff;
     } 
-    
-    
-    
-    else if ((dbl==61)or(dbl==49)){ //p ou accord
+       
+    else if ((dbl==61)or(dbl==49)){ // symbole p, note précédente de l'accord
       return -1*coeff;
-    } else if ((dbl==63)or(dbl==51)){ // n ou accord
+    } else if ((dbl==63)or(dbl==51)){ // symbole n, note suivante de l'accord
       return 1*coeff;
-    } else if (dbl==50){ // le même accord
+
+    } else if (dbl==50){ // on joue le même accord
       return 0;
     }
 
     else {
-    return -99;
+    return -99; // symbol inexistant
     }
 
 
 
   } else if (modeFree==true){
+
+  //-----------------------------------------------------------------
+  // mode free activé 
+  // On joue d'une façon classique, mais les notes sont adaptées à la gamme et l'accord en cours
+  //-----------------------------------------------------------------
+
     debugln("mode free dans dblDecode");
 
     debugln("nota : ");
@@ -421,8 +458,9 @@ int dblDecode(int dbl) {
 
 
 //####################################################################################################
-// Fonction GAMMES
-// Fonction générique pour obtenir une note relative, même si la note initiale n'est pas dans la gamme
+// Fonction pour les GAMMES
+// On récupère la note précédente et le mouvement (+1, +2, -1...)
+// elle restitue la note MIDI, en fonction de la gamme en cours
 //####################################################################################################
 
 int getMidiNote(int currentNote, int mouv) {
@@ -466,16 +504,13 @@ currentNote= currentNote%12;
 
       return currentNoteBase + gammeTab[targetIndex]; // Retourne la note cible
 
-
-  //return -1; // Clé introuvable
 }
 
 
-
-
 //####################################################################################################
-// Fonction ACCORDS
-// Fonction générique pour obtenir une note relative, même si la note initiale n'est pas dans la gamme
+// Fonction pour l'accord
+// On récupère la note précédente et le mouvement (0, +1, ou -1)
+// elle restitue la note MIDI, en fonction de l'accord en cours
 //####################################################################################################
 
 int getMidiNoteChord(int currentNote, int mouv) {
@@ -485,7 +520,6 @@ currentNote= currentNote%12;
 
     accordTab = accordIntToArray(accord);
       int size = 3;
-      //debugln(size);
       int startIndex = -1;
 
       // Rechercher l'index exact ou trouver le voisin le plus proche
@@ -519,14 +553,18 @@ currentNote= currentNote%12;
 
       return currentNoteBase + accordTab[targetIndex]; // Retourne la note cible
 
-
-  return -1; // Clé introuvable
 }
 
 
+//*****************************************************************************
+//*****************************************************************************
+//*****************************************************************************
+//>>>>>> fonction principale pour exécuter une note de la gamme ou de l'accord 
+//*****************************************************************************
+//*****************************************************************************
+//*****************************************************************************
 
 
-//####### fonction d'exécution d'une note ou un accord 
 
 void play(int pitchInt, byte velocity){
 
@@ -535,14 +573,11 @@ void play(int pitchInt, byte velocity){
       if (mouvement!=-99){
         if (modeFree==true){
 
-
             nota = getMidiNote(nota, mouvement);
             notePrec.set(pitchInt, nota);
             pitchPrec = pitchInt;
             byte notaByte = static_cast<byte>(nota);
             noteOn(3, notaByte, velocity);   // Channel 0, middle C, normal velocity
-             
-
 
         } else {
           if ((pitchInt>=54) and (pitchInt<=70) and (pitchInt!=61) and (pitchInt!=63))  {  // si on a des symbols / ) [...
@@ -679,7 +714,14 @@ void play(int pitchInt, byte velocity){
 
 
 
-//####### fonction d'exécution d'une note ou un accord 
+//*****************************************************************************
+//*****************************************************************************
+//*****************************************************************************
+//>>>>>> fonction principale pour exécuter la mélodie DBL venant du contrôleur 
+//*****************************************************************************
+//*****************************************************************************
+//*****************************************************************************
+
 
 void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
 
@@ -795,9 +837,9 @@ void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
     }
 }
 
-
-//-------------- EVENEMENTS NOTES ON ET OFF ----------------------------------------------------------------
-
+//--------------------------------------------------------------------------
+//-------------- EVENEMENTS NOTES ON ET OFF --------------------------------
+//--------------------------------------------------------------------------
 void handleNoteOn(byte channel, byte pitch, byte velocity)
 {
 
@@ -837,7 +879,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
 		
     int pitchInt = static_cast<int>(pitch);
 
-        // si on relache le Do 36 on désactive le mode accord 
+    // si on relache le Do 36 on désactive le mode accord 
     if ((pitchInt==36)or(pitchInt==38)){
 
         modeChords = false;
@@ -859,7 +901,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
 
     byte notaByte = static_cast<byte>(notePrecChord.get(pitchInt));
 
-      noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
+      noteOff(3, notaByte, 0);  
       
 
       int noteprecTemp = notePrecChord_3.get(pitchInt);
@@ -867,7 +909,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       if (noteprecTemp!=0){
         notaByte = static_cast<byte>(noteprecTemp);
 
-        noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
+        noteOff(3, notaByte, 0);  
         
         notePrecChord.set(pitchInt, 0);
       }
@@ -877,7 +919,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       if (noteprecTemp!=0){
         notaByte = static_cast<byte>(noteprecTemp);
 
-        noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
+        noteOff(3, notaByte, 0);  
         
         notePrecChord.set(pitchInt, 0);
       }
@@ -890,7 +932,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       
       byte notaByte = static_cast<byte>(notePrec.get(pitchInt));
 
-      noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
+      noteOff(3, notaByte, 0);  
       
 
       int noteprecTemp = notePrec_3.get(pitchInt);
@@ -898,7 +940,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       if (noteprecTemp!=0){
         notaByte = static_cast<byte>(noteprecTemp);
 
-        noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
+        noteOff(3, notaByte, 0);  
         
         notePrec.set(pitchInt, 0);
       }
@@ -908,7 +950,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
       if (noteprecTemp!=0){
         notaByte = static_cast<byte>(noteprecTemp);
 
-        noteOff(3, notaByte, 0);  // Channel 0, middle C, normal velocity
+        noteOff(3, notaByte, 0); 
         
         notePrec.set(pitchInt, 0);
       }
@@ -918,8 +960,12 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
     }
 }
 
-// -----------------------------------------------------------------------------
 
+
+//***************************************************************************************
+// fonction pour décoder la gamme, l'accord et la mélodie DBL à partir des données reçus 
+// dans le packet Multicast 
+//***************************************************************************************
 
 int getScale(String input) {
     int firstSeparator = input.indexOf(';'); // Trouver le premier ';'
@@ -959,9 +1005,12 @@ void setup()
     pinMode(LED, OUTPUT);
     serialBegin();  
 
+    // activation fonctions Handle dès réception d'une note MIDI
     MIDI.setHandleNoteOn(handleNoteOn); 
     MIDI.setHandleNoteOff(handleNoteOff);    
     MIDI.begin(MIDI_CHANNEL_OMNI);
+    
+    // Eviter d'avoir une boucle entre MIDI IN et MIDI OUT
     MIDI.turnThruOff();
      
 }
@@ -971,8 +1020,6 @@ void loop()
   int packetSize = udp.parsePacket();
   if (packetSize) {
  
-    //debugln(velocityAverage);
-    
     /// calcul du temps de la mesure 
     unsigned long currentMillis = millis();
     if (precMillis!=0){
@@ -988,9 +1035,7 @@ void loop()
 
       String message = String(packetBuffer);
       int separatorIndex = message.indexOf(';');
-      
-
-
+   
       if (separatorIndex != -1) {
 
         gamme = getScale(message);
@@ -998,10 +1043,8 @@ void loop()
         accord = getChord(message);
         accordTab = accordIntToArray(accord);
         /*
-        debug("gamme : ");
-        debugln(gamme);
-        debug("accord : ");      
-        debugln(accord);        
+        debug("gamme : ");debugln(gamme);
+        debug("accord : ");debugln(accord);        
         */
         int firstNoteChord = accordTab[0];
         int secondNoteChord = accordTab[1];
@@ -1029,7 +1072,6 @@ void loop()
 
       timeBit = timeMeasure/lenDblMeasure;   
 
-
       indexDbl=0;
       playDBL(dblMeasure, indexDbl);
       precMillisNote = millis();
@@ -1054,9 +1096,3 @@ void loop()
     }
 
 }
-
-
-
-
-
-
