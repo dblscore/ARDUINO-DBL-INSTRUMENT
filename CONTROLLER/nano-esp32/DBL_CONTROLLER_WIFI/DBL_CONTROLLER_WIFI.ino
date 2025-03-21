@@ -1,11 +1,11 @@
 #include <STRING.h>
 #include <WiFi.h>
-#include <NetworkClient.h>
+#include <WiFiClient.h>
 #include <WiFiAP.h>
-#include <NetworkUdp.h>
+#include <WiFiUdp.h>
 #include <WebServer.h>
 #include "FS.h"
-#include <SPIFFS.h>
+#include <FFat.h>
 
 //*************** display ********************************
 #include <Wire.h>
@@ -19,7 +19,7 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 //activation du display (si display présent --> true sinon false)
-bool displayOn = false;
+bool displayOn = true;
 //**********************************************************
 
 #define DEBUG 0
@@ -42,7 +42,7 @@ IPAddress ip(192, 168, 100, 10); // Adresse IP du récepteur
 IPAddress multicastIP(239, 0, 0, 255); // Adresse multicast
 unsigned int multicastPort = 5555;   // Port multicast
 
-NetworkUDP udp;
+WiFiUDP udp;
 
 const char *ssid = "DBL";
 const char *password = "DBLINSTRUMENT";
@@ -50,8 +50,6 @@ WebServer server(80);
 
 const int chipSelect = 4;
 File root;
-
-
 
 int scale;
 int chord;
@@ -73,7 +71,7 @@ String readFile(const char *path) {
     Serial.printf("Reading file: %s\r\n", path);
     String content = "";
 
-    File file = SPIFFS.open(path);
+    File file = FFat.open(path);
     if (!file || file.isDirectory()) {
         debugln("- failed to open file for reading");
         return "";  // Retourne une chaîne vide en cas d'erreur
@@ -90,12 +88,12 @@ String readFile(const char *path) {
 
 
 int getLignesNumber(String fileName) {
-    if (!SPIFFS.begin(true)) {  // Monte SPIFFS avec formatage automatique si nécessaire
-        Serial.println("Échec du montage de SPIFFS");
+    if (!FFat.begin(true)) {  // Monte FFat avec formatage automatique si nécessaire
+        Serial.println("Échec du montage de FFat");
         return -1;
     }
 
-    File file = SPIFFS.open(fileName, "r");
+    File file = FFat.open(fileName, "r");
     if (!file) {
         Serial.println("Échec de l'ouverture du fichier");
         return -1;
@@ -122,7 +120,7 @@ String getLigneString(String fileName, int nLigne) {
     return "";
   }
 
-  File file = SPIFFS.open(fileName, "r"); // Ouvre le fichier en lecture
+  File file = FFat.open(fileName, "r"); // Ouvre le fichier en lecture
   if (!file) {
     debugln("Erreur d'ouverture du fichier !");
     return "";
@@ -234,7 +232,7 @@ void handleSubmit() {
 
   //****************************************************  
     String filename = "/DBL.TXT";    
-    File file = SPIFFS.open(filename, "w");
+    File file = FFat.open(filename, "w");
     if (!file) {
         debugln("Erreur d'ouverture du fichier dans handleSubmit.");
         return;
@@ -262,7 +260,7 @@ bool screenEnabled = false;
 
 
 void setup() {
-  pinMode(4, INPUT);// PIN 4 -> 1-> webserver mode 0-> multicast mode 
+  pinMode(7, INPUT_PULLUP);// PIN 7 -> 1-> webserver mode 0-> multicast mode 
  
   serialBegin(115200);
   delay(1000);
@@ -281,8 +279,8 @@ void setup() {
 
 //----- init PSIFFS
 
-  if (!SPIFFS.begin(true)) {
-    debugln("Erreur SPIFFS");
+  if (!FFat.begin(true)) {
+    debugln("Erreur FFat");
     return;
   }
 
@@ -328,7 +326,7 @@ void loop() {
 
 
   // si le piN 8 est débranché on gère l'envoi du flux multicast 
-  if (digitalRead(4)==0){
+  if (digitalRead(7)){
   
   mesureTimePercent = 100*(millis()-mesureTimeSync)/bpmTime;
 

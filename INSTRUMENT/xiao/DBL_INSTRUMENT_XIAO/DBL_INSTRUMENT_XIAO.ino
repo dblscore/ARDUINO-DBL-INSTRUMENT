@@ -2,7 +2,7 @@
 //#include <MIDIUSB.h>
 #include "RECEIVER.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG
   #define debug(x) Serial.print(x)
@@ -42,8 +42,13 @@ bool modeRandom = false;
 
 /// dbl
 unsigned long precMillis = 0; // 0 pour initialisation, la première fois qu'on recois un paquet precMillis = millis()
-unsigned long timeMeasure = 0; // 0 pour initialisation, puis timeMeasure sera millis()- precMillis
-unsigned long timeBit;
+int timeMeasure; // information reçue par les paquets multicast d'initialisation 
+
+unsigned long timeMeasureTest = 0; // 0 pour test éventuel, timeMeasure sera millis()- precMillis
+
+
+
+int timeBit;
 int lenDblMeasure;
 String dblMeasure;
 int indexDbl = 0;
@@ -295,6 +300,7 @@ void noteOn(byte channel, byte pitch, byte velocity) {
   velocityAverage = (alpha * velocity) + ((1 - alpha) * velocityAverage);
   MIDI.sendNoteOn(pitch, velocity, channel);
   
+  
 }
 
 void noteOff(byte channel, byte pitch, byte velocity) {
@@ -302,6 +308,7 @@ void noteOff(byte channel, byte pitch, byte velocity) {
   //noteOffUSB(channel, pitch, velocity);
 
   MIDI.sendNoteOff(pitch, 0, channel);
+  
 }
 
 
@@ -309,6 +316,7 @@ void noteOff(byte channel, byte pitch, byte velocity) {
 void noteDblOn(byte channel, byte pitch, byte velocity) {
   //noteDblOnUSB(channel, pitch, velocity);  
   MIDI.sendNoteOn(pitch, velocity, channel);
+  
 }
 
 
@@ -531,10 +539,10 @@ currentNote= currentNote%12;
 void play(int pitchInt, byte velocity){
 
      int mouvement = dblDecode(pitchInt);
-
+      
       if (mouvement!=-99){
+        
         if (modeFree==true){
-
 
             nota = getMidiNote(nota, mouvement);
             notePrec.set(pitchInt, nota);
@@ -683,7 +691,7 @@ void play(int pitchInt, byte velocity){
 
 void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
 
-    char dblChar = dblLine.charAt(pos);
+  char dblChar = dblLine.charAt(pos);
     //debugln(dblChar);
   if (dblChar=='-'){
 
@@ -718,7 +726,7 @@ void playDBL(String dblLine, int pos){//(int pitchInt, byte velocity){
      } else if (dblChar=='\\'){
       mouvement = -1;
       mouvementChord = false;      
-     } else if (dblChar=='())'){
+     } else if (dblChar=='('){
       mouvement = -2;
       mouvementChord = false;      
      } else if (dblChar=='['){
@@ -825,7 +833,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity)
     }
 	
 	
-	else {
+	else if((pitchInt>=49)and(pitchInt<=71)) {
         
          play(pitchInt, velocity);
 
@@ -838,25 +846,27 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
 		
     int pitchInt = static_cast<int>(pitch);
 
-        // si on relache le Do 36 on désactive le mode accord 
+    // si on relache le Do 36 on désactive le mode accord 
     if ((pitchInt==36)or(pitchInt==38)){
 
         modeChords = false;
         chordNoteNbr = 1;
 
+    // activation mode free
     } else  if (pitchInt==40){
 
       modeFree = false;
       debugln("mode free dans handleNoteOff");
     
+    // activation mode random
     } else  if (pitchInt==41){
 
       modeRandom = false;
       debugln("mode random dans handleNoteOff");
     
     }    
-	
-	else if ((pitchInt>=49)and(pitchInt<=51)) { //accords
+	//accords
+	else if ((pitchInt>=49)and(pitchInt<=51)) { 
 
     byte notaByte = static_cast<byte>(notePrecChord.get(pitchInt));
 
@@ -883,10 +893,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
         notePrecChord.set(pitchInt, 0);
       }
 
-
-
-
-    }else{
+    }else if((pitchInt>=53)and(pitchInt<=71)){
     
       
       byte notaByte = static_cast<byte>(notePrec.get(pitchInt));
@@ -914,13 +921,10 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
         notePrec.set(pitchInt, 0);
       }
 
-
-
     }
 }
 
 // -----------------------------------------------------------------------------
-
 
 int getScale(String input) {
     int firstSeparator = input.indexOf(';'); // Trouver le premier ';'
@@ -982,7 +986,7 @@ void loop()
     /// calcul du temps de la mesure 
     unsigned long currentMillis = millis();
     if (precMillis!=0){
-    timeMeasure = currentMillis - precMillis; 
+    timeMeasureTest = currentMillis - precMillis; 
     } 
     precMillis = currentMillis;    
     
@@ -994,54 +998,59 @@ void loop()
 
       String message = String(packetBuffer);
       int separatorIndex = message.indexOf(';');
-      
+
+        // si on est dans une mesure
+        if (separatorIndex != -1) {
+
+          gamme = getScale(message);
+          gammeTab = gammeIntToArray(gamme);
+          accord = getChord(message);
+          accordTab = accordIntToArray(accord);
+          /*
+          debug("gamme : ");
+          debugln(gamme);
+          debug("accord : ");      
+          debugln(accord);        
+          */
+          int firstNoteChord = accordTab[0];
+          int secondNoteChord = accordTab[1];
+          int thirdNoteChord = accordTab[2];
+
+          int firstChordDiff = 12+firstNoteChord - thirdNoteChord;
+          int secondChordDiff = secondNoteChord - firstNoteChord;
+          int thirdChordDiff = thirdNoteChord - secondNoteChord;
 
 
-      if (separatorIndex != -1) {
+          int maxVal = max(firstChordDiff, max(secondChordDiff, thirdChordDiff));
 
-        gamme = getScale(message);
-        gammeTab = gammeIntToArray(gamme);
-        accord = getChord(message);
-        accordTab = accordIntToArray(accord);
+          if (maxVal==firstChordDiff){
+            tonica = firstNoteChord; 
+          } else if (maxVal==secondChordDiff){
+            tonica = secondNoteChord;
+          } else if (maxVal==thirdChordDiff){
+            tonica = thirdNoteChord;
+          }
+
+
+        dblMeasure = getDBL(message);
+        dblMeasure.trim();
+        lenDblMeasure = dblMeasure.length();
+
+        timeBit = timeMeasure/lenDblMeasure;   
+
+
+        indexDbl=0;
+        playDBL(dblMeasure, indexDbl);
+        precMillisNote = millis();
         
-        debug("gamme : ");
-        debugln(gamme);
-        debug("accord : ");      
-        debugln(accord);        
-        
-        int firstNoteChord = accordTab[0];
-        int secondNoteChord = accordTab[1];
-        int thirdNoteChord = accordTab[2];
 
-        int firstChordDiff = 12+firstNoteChord - thirdNoteChord;
-        int secondChordDiff = secondNoteChord - firstNoteChord;
-        int thirdChordDiff = thirdNoteChord - secondNoteChord;
+      }else {
+      // sinon si on est dans les paquets d'initialisation (il n'y a pas de ;)
+      timeMeasure = message.toInt();
 
+      debug("timeMeasure : ");debugln(timeMeasure);
 
-        int maxVal = max(firstChordDiff, max(secondChordDiff, thirdChordDiff));
-
-        if (maxVal==firstChordDiff){
-          tonica = firstNoteChord; 
-        } else if (maxVal==secondChordDiff){
-          tonica = secondNoteChord;
-        } else if (maxVal==thirdChordDiff){
-          tonica = thirdNoteChord;
-        }
-
-
-      dblMeasure = getDBL(message);
-      dblMeasure.trim();
-      lenDblMeasure = dblMeasure.length();
-
-      timeBit = timeMeasure/lenDblMeasure;   
-
-
-      indexDbl=0;
-      playDBL(dblMeasure, indexDbl);
-      precMillisNote = millis();
-      
-
-    }
+      }
     }else {
       MIDI.read();
       unsigned long currentMillis = millis();
@@ -1055,7 +1064,6 @@ void loop()
           playDBL(dblMeasure, indexDbl);
           precMillisNote = millis();
         } 
-
 
     }
 
