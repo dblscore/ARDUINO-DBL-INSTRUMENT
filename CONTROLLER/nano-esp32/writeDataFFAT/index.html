@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grille Musicale</title>
+    <script src="jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            background-color: #001a00;
+            color: #00ff00;
+            font-family: "Courier New", Courier, monospace;
+            text-shadow: 0 0 5px #00ff00;
+            padding: 20px;
+        }
+        /* Style de la barre de défilement */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+            background-color: #001a00;
+        }
+        ::-webkit-scrollbar-track {
+            background-color: #001a00;
+            border: 1px solid #00aa00;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #00aa00;
+            border: 1px solid #00ff00;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #00ff00;
+        }
+        ::-webkit-scrollbar-corner {
+            background-color: #001a00;
+        }
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px #00ff00;
+            border: 1px solid #00ff00;
+        }
+        table { 
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 20px;
+            background-color: #001a00;
+        }
+        td { 
+            border: 1px solid #00aa00; 
+            padding: 5px;
+            min-width: 120px;
+            width: 120px;
+        }
+        select { 
+            width: 100%;
+            background-color: #001a00;
+            color: #00ff00;
+            border: 1px solid #00aa00;
+            font-family: "Courier New", Courier, monospace;
+        }
+        select option {
+            background-color: #001a00;
+            color: #00ff00;
+        }
+        input { 
+            width: 95%;
+            background-color: #001a00;
+            color: #00ff00;
+            border: 1px solid #00aa00;
+            font-family: "Courier New", Courier, monospace;
+        }
+        input:focus, select:focus {
+            outline: none;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        .row-label {
+            font-weight: bold;
+            width: 100px;
+            min-width: 100px;
+            background-color: #002200;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+        }
+        #addMeasure, #sendToController {
+            padding: 5px 10px;
+            background-color: #002200;
+            color: #00ff00;
+            border: 1px solid #00aa00;
+            cursor: pointer;
+            font-family: "Courier New", Courier, monospace;
+            text-transform: uppercase;
+            margin-left: 10px;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        #addMeasure:hover, #sendToController:hover {
+            background-color: #003300;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        .delete-measure {
+            background-color: #002200;
+            color: #00ff00;
+            border: 1px solid #00aa00;
+            cursor: pointer;
+            font-family: "Courier New", Courier, monospace;
+            padding: 2px 5px;
+            margin-left: 5px;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        .delete-measure:hover {
+            background-color: #003300;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        .measure-number {
+            text-align: center;
+            font-weight: bold;
+        }
+        /* Effet de scintillement CRT */
+        @keyframes flicker {
+            0% { opacity: 0.98; }
+            50% { opacity: 1; }
+            100% { opacity: 0.98; }
+        }
+        body {
+            animation: flicker 0.1s infinite;
+        }
+        #compilation {
+            margin-top: 40px;
+        }
+        #compilation h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        #compilationOutput {
+            width: 100%;
+            height: 200px;
+            background-color: #001a00;
+            color: #00ff00;
+            border: 1px solid #00aa00;
+            font-family: "Courier New", Courier, monospace;
+            padding: 10px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px #00ff00;
+            resize: vertical;
+        }
+        #compilationOutput:focus {
+            outline: none;
+            box-shadow: 0 0 15px #00ff00;
+        }
+        .button-container {
+            text-align: center;
+        }
+        #tempo-container {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #tempo-input {
+            width: 80px;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+        #tempo-input::-webkit-outer-spin-button,
+        #tempo-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .tempo-label {
+            color: #00ff00;
+            font-family: "Courier New", Courier, monospace;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        .tempo-controls {
+            display: flex;
+            
+            gap: 2px;
+        }
+        .tempo-button {
+            background-color: #002200;
+            color: #00ff00;
+            border: 1px solid #00aa00;
+            font-family: "Courier New", Courier, monospace;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 12px;
+            box-shadow: 0 0 5px #00ff00;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tempo-button:hover {
+            background-color: #003300;
+            box-shadow: 0 0 10px #00ff00;
+        }
+    </style>
+</head>
+<body>
+ 
+  <h2><center>STRUCTURE HARMONIQUE</center></h2>  
+  <div id="tempo-container">
+        <label for="tempo-input" class="tempo-label">Tempo (BPM):</label>
+        <input type="number" id="tempo-input" min="20" max="300" value="60">
+        <div class="tempo-controls">
+          <button class="tempo-button" id="tempo-down">-</button>
+          <button class="tempo-button" id="tempo-up">+</button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table id="grid">
+            <tr id="measures">
+                <td class="row-label">Mesure</td>
+                <td class="measure-number">1 <button class="delete-measure">X</button></td>
+            </tr>
+            <tr id="chords">
+                <td class="row-label">Piste accords</td>
+                <td><select class="chord-select"></select></td>
+            </tr>
+            <tr id="scales">
+                <td class="row-label">Piste gamme</td>
+                <td><select class="scale-select"></select></td>
+            </tr>
+            <tr id="dbl">
+                <td class="row-label">Piste dbl</td>
+                <td><input type="text" class="dbl-input"></td>
+            </tr>
+        </table>
+    </div>
+
+    <button id="addMeasure">Ajouter une mesure</button>
+
+    <form action="/write.htm" id="compilationForm" method="post">
+        <div id="compilation">
+            <h2>Compilation fichier harmonique pour contrôleur DBL</h2>
+            <textarea id="compilationOutput" name="Harmony"></textarea>
+            <div class="button-container">
+                <button type="submit" id="sendToController">Envoyer vers le contrôleur</button>
+            </div>
+        </div>
+    </form>
+
+    <script>
+        const chords = [
+            { id: 2192, name: "C" },
+            { id: 2320, name: "Cm" },
+            { id: 1096, name: "C#" },
+            { id: 1160, name: "C#m" },
+            { id: 548, name: "D" },
+            { id: 580, name: "Dm" },
+            { id: 274, name: "D#" },
+            { id: 290, name: "D#m" },
+            { id: 137, name: "E" },
+            { id: 145, name: "Em" },
+            { id: 2116, name: "F" },
+            { id: 2120, name: "Fm" },
+            { id: 1058, name: "F#" },
+            { id: 1060, name: "F#m" },
+            { id: 529, name: "G" },
+            { id: 530, name: "Gm" },
+            { id: 2312, name: "G#" },
+            { id: 265, name: "G#m" },
+            { id: 1156, name: "A" },
+            { id: 2180, name: "Am" },
+            { id: 578, name: "A#" },
+            { id: 1090, name: "A#m" },
+            { id: 289, name: "B" },
+            { id: 545, name: "Bm" },
+            { id: 2336, name: "Cdim" },
+            { id: 1168, name: "C#dim" },
+            { id: 584, name: "Ddim" },
+            { id: 292, name: "D#dim" },
+            { id: 146, name: "Edim" },
+            { id: 73, name: "Fdim" },
+            { id: 2084, name: "F#dim" },
+            { id: 1042, name: "Gdim" },
+            { id: 521, name: "G#dim" },
+            { id: 2308, name: "Adim" },
+            { id: 1154, name: "A#dim" },
+            { id: 577, name: "Bdim" }
+        ];
+
+        const scales = [
+            { id: 2773, name: "C major / A minor" },
+            { id: 3434, name: "C# major / A# minor" },
+            { id: 1717, name: "D major / B minor" },
+            { id: 2906, name: "D# major / C minor" },
+            { id: 1453, name: "E major / C# minor" },
+            { id: 2774, name: "F major / D minor" },
+            { id: 1387, name: "F# major / D# minor" },
+            { id: 2741, name: "G major / E minor" },
+            { id: 3418, name: "G# major / F minor" },
+            { id: 1709, name: "A major / F# minor" },
+            { id: 2902, name: "Bb major / G minor" },
+            { id: 1451, name: "B major / G# minor" },
+            { id: 2901, name: "C melodic minor" },
+            { id: 3498, name: "C# melodic minor" },
+            { id: 1749, name: "D melodic minor" },
+            { id: 2922, name: "D# melodic minor" },
+            { id: 1461, name: "E melodic minor" },
+            { id: 2778, name: "F melodic minor" },
+            { id: 1389, name: "F# melodic minor" },
+            { id: 2742, name: "G melodic minor" },
+            { id: 1371, name: "G# melodic minor" },
+            { id: 2733, name: "A melodic minor" },
+            { id: 3414, name: "Bb melodic minor" },
+            { id: 1707, name: "B melodic minor" },
+            { id: 2905, name: "C harmonic minor" },
+            { id: 3500, name: "C# harmonic minor" },
+            { id: 1750, name: "D harmonic minor" },
+            { id: 875, name: "D# harmonic minor" },
+            { id: 2485, name: "E harmonic minor" },
+            { id: 3290, name: "F harmonic minor" },
+            { id: 1645, name: "F# harmonic minor" },
+            { id: 2870, name: "G harmonic minor" },
+            { id: 1435, name: "G# harmonic minor" },
+            { id: 2765, name: "A harmonic minor" },
+            { id: 3430, name: "Bb harmonic minor" },
+            { id: 1715, name: "B harmonic minor" },
+            { id: 1718, name: "D harmonic major" },
+            { id: 859, name: "D# harmonic major" },
+            { id: 1459, name: "B harmonic major" },
+            { id: 1643, name: "F# harmonic major" },
+            { id: 1741, name: "A harmonic major" },
+            { id: 2477, name: "E harmonic major" },
+            { id: 2777, name: "C harmonic major" },
+            { id: 2869, name: "G harmonic major" },
+            { id: 2918, name: "A# harmonic major" },
+            { id: 3286, name: "F harmonic major" },
+            { id: 3436, name: "C# harmonic major" },
+            { id: 3482, name: "G# harmonic major" }
+        ];
+
+        function initializeSelect(select, options) {
+            select.empty();
+            select.append('<option value="">Sélectionner</option>');
+            options.forEach(function(option) {
+                select.append(`<option value="${option.id}">${option.name}</option>`);
+            });
+        }
+
+        function updateMeasureNumbers() {
+            $('#measures td:not(.row-label)').each(function(index) {
+                $(this).html(`${index + 1} <button class="delete-measure">X</button>`);
+            });
+        }
+
+        function updateCompilation() {
+            let compilation = '';
+            
+            // Ajouter la ligne du tempo
+            const tempo = $('#tempo-input').val() || '60';
+            compilation += `bpm=${tempo}\n`;
+            
+            const measures = $('#grid tr:first td').length - 1;
+            
+            for(let i = 0; i < measures; i++) {
+                const scaleId = $('.scale-select').eq(i).val() || '';
+                const chordId = $('.chord-select').eq(i).val() || '';
+                const dblText = $('.dbl-input').eq(i).val() || '';
+                compilation += `${scaleId};${chordId};${dblText}\n`;
+            }
+            
+            $('#compilationOutput').val(compilation);
+        }
+
+        function updateGridFromTextarea() {
+            const content = $('#compilationOutput').val();
+            const lines = content.trim().split('\n');
+            
+            // Extraire le tempo de la première ligne
+            if (lines[0].startsWith('bpm=')) {
+                const tempo = lines[0].split('=')[1];
+                $('#tempo-input').val(tempo);
+                // Retirer la ligne du tempo pour le traitement des mesures
+                lines.shift();
+            }
+            
+            // Supprimer toutes les mesures existantes
+            $('#measures td:not(.row-label)').remove();
+            $('#chords td:not(.row-label)').remove();
+            $('#scales td:not(.row-label)').remove();
+            $('#dbl td:not(.row-label)').remove();
+            
+            // Ajouter le nombre correct de mesures
+            lines.forEach((line, index) => {
+                const [scaleId, chordId, dblText] = line.trim().split(';');
+                
+                // Ajouter une nouvelle mesure
+                $('#measures').append(`<td class="measure-number">${index + 1} <button class="delete-measure">X</button></td>`);
+                
+                // Ajouter et initialiser les selects
+                const chordSelect = $('<select>').addClass('chord-select');
+                const scaleSelect = $('<select>').addClass('scale-select');
+                
+                $('#chords').append($('<td>').append(chordSelect));
+                $('#scales').append($('<td>').append(scaleSelect));
+                $('#dbl').append('<td><input type="text" class="dbl-input"></td>');
+                
+                // Initialiser les selects
+                initializeSelect(chordSelect, chords);
+                initializeSelect(scaleSelect, scales);
+                
+                // Définir les valeurs
+                if (chordId) chordSelect.val(chordId);
+                if (scaleId) scaleSelect.val(scaleId);
+                $('.dbl-input').eq(index).val(dblText || '');
+            });
+        }
+
+        $(document).ready(function() {
+            // Initialiser les combobox existantes
+            $('.chord-select').each(function() {
+                initializeSelect($(this), chords);
+            });
+
+            $('.scale-select').each(function() {
+                initializeSelect($(this), scales);
+            });
+
+            // Gérer l'ajout de nouvelles mesures
+            $('#addMeasure').click(function() {
+                const measureCount = $('#measures td').length - 1;
+                $('#measures').append(`<td class="measure-number">${measureCount + 1} <button class="delete-measure">X</button></td>`);
+                $('#chords').append('<td><select class="chord-select"></select></td>');
+                $('#scales').append('<td><select class="scale-select"></select></td>');
+                $('#dbl').append('<td><input type="text" class="dbl-input"></td>');
+
+                initializeSelect($('#chords .chord-select').last(), chords);
+                initializeSelect($('#scales .scale-select').last(), scales);
+                updateCompilation();
+            });
+
+            // Gérer la suppression des mesures
+            $(document).on('click', '.delete-measure', function() {
+                const columnIndex = $(this).parent().index();
+                $('#grid tr').each(function() {
+                    $(this).find('td').eq(columnIndex).remove();
+                });
+                updateMeasureNumbers();
+                updateCompilation();
+            });
+
+            // Mettre à jour la compilation lors des changements dans la grille
+            $(document).on('change', '.chord-select, .scale-select, .dbl-input', function() {
+                updateCompilation();
+            });
+
+            // Mettre à jour la grille lors des changements dans le textarea
+            $('#compilationOutput').on('input', function() {
+                updateGridFromTextarea();
+            });
+
+            // Ajouter l'événement pour le changement de tempo
+            $('#tempo-input').on('change', function() {
+                const value = parseInt($(this).val());
+                if (value < 20) $(this).val(20);
+                if (value > 300) $(this).val(300);
+                updateCompilation();
+            });
+
+            // Gestion des boutons tempo
+            $('#tempo-up').click(function() {
+                let value = parseInt($('#tempo-input').val()) || 60;
+                value = Math.min(value + 1, 300);
+                $('#tempo-input').val(value);
+                updateCompilation();
+            });
+
+            $('#tempo-down').click(function() {
+                let value = parseInt($('#tempo-input').val()) || 60;
+                value = Math.max(value - 1, 20);
+                $('#tempo-input').val(value);
+                updateCompilation();
+            });
+
+            // Gestion des touches clavier pour le tempo
+            $('#tempo-input').on('keydown', function(e) {
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    $('#tempo-up').click();
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    $('#tempo-down').click();
+                }
+            });
+
+            // Charger le fichier DBL.TXT s'il existe
+            fetch('DBL.TXT')
+                .then(response => response.text())
+                .then(content => {
+                    $('#compilationOutput').val(content);
+                    updateGridFromTextarea();
+                })
+                .catch(error => console.log('Fichier DBL.TXT non trouvé'));
+        });
+    </script>
+</body>
+</html>
